@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Networking Tracker</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070912;
+      --bg-2: #0d101a;
+      --panel: #111622;
+      --panel-2: #171d2b;
+      --panel-3: #202738;
+      --ink: #edf0f8;
+      --muted: #8d95aa;
+      --quiet: #596174;
+      --line: #252d42;
+      --line-2: #36405d;
+      --gold: #d7b75d;
+      --gold-2: #f1d984;
+      --accent: #44c7b0;
+      --accent-2: #4f8cff;
+      --violet: #9a7cff;
+      --warn: #f0a24b;
+      --good: #55d987;
+      --bad: #ff6b6b;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% -10%, rgba(215,183,93,.12), transparent 28%),
+        radial-gradient(circle at 95% 0%, rgba(68,199,176,.10), transparent 26%),
+        linear-gradient(180deg, #070912 0%, #0a0d16 100%);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 310px 1fr; }
+    aside {
+      padding: 22px;
+      border-right: 1px solid var(--line);
+      background: rgba(13, 16, 26, .88);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+    main { padding: 22px; min-width: 0; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .mark { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(135deg, var(--gold-2), #8a641b); color: #0b0d14; font-weight: 900; box-shadow: 0 12px 34px rgba(215,183,93,.22); }
+    h1 { font-size: 22px; margin: 0; line-height: 1.1; letter-spacing: -.02em; }
+    .sub { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .nav { display: grid; gap: 8px; margin-bottom: 20px; }
+    .nav button, .ghost, .primary, .iconbtn {
+      border: 1px solid var(--line);
+      background: rgba(17,22,34,.78);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    .nav button.active { background: rgba(215,183,93,.14); color: var(--gold-2); border-color: rgba(215,183,93,.55); box-shadow: inset 3px 0 0 var(--gold); }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025)); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .stat strong { display: block; font-size: 25px; color: var(--gold); }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .sync {
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 9px;
+    }
+    label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: #0e1320;
+      color: var(--ink);
+      outline-color: var(--accent);
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    .topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .search { flex: 1; min-width: 210px; }
+    .primary { background: linear-gradient(135deg, var(--gold), #a77a23); border-color: rgba(215,183,93,.75); color: #090b12; text-align: center; font-weight: 850; }
+    .ghost { text-align: center; }
+    .toolbar { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .mission {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.2fr) repeat(3, minmax(160px, .55fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .mission-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(23,29,43,.96), rgba(17,22,34,.96));
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: var(--shadow);
+      min-height: 94px;
+    }
+    .mission-card h3 { margin: 0 0 8px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .mission-card strong { display: block; font-size: 24px; color: var(--ink); letter-spacing: -.02em; }
+    .mission-card p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .pulse { display: inline-flex; gap: 7px; align-items: center; color: var(--accent); font-weight: 800; }
+    .pulse::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px var(--accent); }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stage {
+      background: rgba(17,22,34,.72);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 96px;
+    }
+    .stage b { display: flex; justify-content: space-between; color: var(--ink); font-size: 13px; }
+    .stage span { color: var(--gold); }
+    .mini { margin-top: 9px; display: grid; gap: 6px; }
+    .mini button {
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      text-align: left;
+      border-radius: 6px;
+      padding: 7px;
+      font-size: 12px;
+    }
+    .tablewrap { background: rgba(17,22,34,.92); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; min-width: 980px; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--panel-2); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    td { font-size: 14px; }
+    tr:hover td { background: rgba(255,255,255,.035); }
+    .scroll { overflow: auto; max-height: calc(100vh - 190px); }
+    .name { font-weight: 850; color: var(--ink); }
+    .tiny { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; background: rgba(85,217,135,.12); color: var(--good); }
+    .pill.orange { background: rgba(240,162,75,.12); color: var(--warn); }
+    .pill.red { background: rgba(255,107,107,.13); color: var(--bad); }
+    .pill.gray { background: rgba(141,149,170,.12); color: var(--muted); }
+    .score { color: var(--gold); font-weight: 850; }
+    .actions { display: flex; gap: 7px; flex-wrap: wrap; }
+    .iconbtn { padding: 7px 9px; text-align: center; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .64);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 10;
+    }
+    .modal.open { display: flex; }
+    .dialog {
+      width: min(980px, 100%);
+      max-height: 92vh;
+      overflow: auto;
+      background: #101521;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+    .dialog header { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #101521; z-index: 1; }
+    .dialog h2 { margin: 0; font-size: 20px; }
+    .form { padding: 20px; display: grid; gap: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .full { grid-column: 1 / -1; }
+    .research { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .research a {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--accent-2);
+      text-decoration: none;
+      background: rgba(255,255,255,.035);
+      font-weight: 750;
+    }
+    .empty { padding: 34px; text-align: center; color: var(--muted); }
+    .note { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .intel {
+      border: 1px solid rgba(215,183,93,.28);
+      background: linear-gradient(135deg, rgba(215,183,93,.11), rgba(68,199,176,.06));
+      border-radius: 10px;
+      padding: 14px;
+      display: grid;
+      gap: 9px;
+    }
+    .intel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .intel-k { background: rgba(0,0,0,.14); border: 1px solid rgba(255,255,255,.05); border-radius: 8px; padding: 10px; }
+    .intel-k b { display: block; color: var(--gold-2); font-size: 20px; }
+    .intel-k span { color: var(--muted); font-size: 11px; }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; }
+      .toolbar, .grid3, .mission, .pipeline { grid-template-columns: 1fr 1fr; }
+      .scroll { max-height: none; }
+    }
+    @media (max-width: 640px) {
+      main, aside { padding: 14px; }
+      .topbar, .grid, .grid3, .toolbar, .research, .mission, .pipeline, .intel-grid { grid-template-columns: 1fr; display: grid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="mark">NT</div>
+        <div>
+          <h1>Networking Tracker</h1>
+          <p class="sub">Contacts, chats, follow-ups, public sources.</p>
+        </div>
+      </div>
+      <div class="nav" id="views">
+        <button class="active" data-view="all">All contacts</button>
+        <button data-view="active">Active conversations</button>
+        <button data-view="followups">Follow-ups due</button>
+        <button data-view="favorites">Priority contacts</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><strong id="totalCount">0</strong><span>Total</span></div>
+        <div class="stat"><strong id="chatCount">0</strong><span>Chatted</span></div>
+        <div class="stat"><strong id="dueCount">0</strong><span>Due</span></div>
+        <div class="stat"><strong id="sourceCount">0</strong><span>Sources</span></div>
+      </div>
+      <div class="sync">
+        <strong>Cloud sync</strong>
+        <p class="note">For anywhere access, deploy this file and connect a Supabase table named <code>network_contacts</code>. Until then, your browser saves locally.</p>
+        <div><label>Supabase URL</label><input id="supabaseUrl" placeholder="https://...supabase.co"></div>
+        <div><label>Anon key</label><input id="supabaseKey" placeholder="public anon key"></div>
+        <button class="ghost" id="saveCloud">Save sync settings</button>
+        <button class="ghost" id="syncNow">Sync now</button>
+        <p class="note" id="syncStatus">Local mode</p>
+      </div>
+    </aside>
+    <main>
+      <div class="topbar">
+        <input class="search" id="search" placeholder="Search people, company, role, topic, location">
+        <button class="primary" id="addContact">Add contact</button>
+        <button class="ghost" id="exportCsv">Export CSV</button>
+        <label class="ghost" for="importCsv">Import CSV</label>
+        <input id="importCsv" type="file" accept=".csv" hidden>
+      </div>
+      <section class="mission">
+        <div class="mission-card">
+          <h3>Today’s networking move</h3>
+          <strong id="nextMove">Build momentum</strong>
+          <p id="nextMoveDetail">Add a follow-up date to your highest-priority warm contact.</p>
+        </div>
+        <div class="mission-card">
+          <h3>Relationship heat</h3>
+          <strong id="heatScore">0%</strong>
+          <p>Share of contacts with chats, follow-ups, or source notes.</p>
+        </div>
+        <div class="mission-card">
+          <h3>Research depth</h3>
+          <strong id="researchDepth">0</strong>
+          <p>Verified public sources saved across your network.</p>
+        </div>
+        <div class="mission-card">
+          <h3>System status</h3>
+          <strong class="pulse" id="systemMode">Local mode</strong>
+          <p id="systemHint">Connect Supabase when you want cross-device access.</p>
+        </div>
+      </section>
+      <section class="pipeline" id="pipeline"></section>
+      <div class="toolbar">
+        <select id="statusFilter"><option value="">All statuses</option></select>
+        <select id="priorityFilter"><option value="">All priorities</option></select>
+        <select id="sourceFilter"><option value="">All source types</option></select>
+        <input id="tagFilter" placeholder="Filter by tag">
+        <input id="companyFilter" placeholder="Filter by company">
+      </div>
+      <div class="tablewrap">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Person</th><th>Role</th><th>Status</th><th>Last chat</th><th>Follow-up</th><th>Tags</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="empty" id="empty" hidden>No contacts match this view.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="dialog">
+      <header>
+        <h2 id="modalTitle">Contact</h2>
+        <button class="iconbtn" id="closeModal">Close</button>
+      </header>
+      <div class="form">
+        <div class="grid">
+          <div><label>Name</label><input id="name"></div>
+          <div><label>LinkedIn / website</label><input id="url"></div>
+          <div><label>Company</label><input id="company"></div>
+          <div><label>Role</label><input id="role"></div>
+          <div><label>Email</label><input id="email"></div>
+          <div><label>Phone</label><input id="phone"></div>
+          <div><label>Location</label><input id="location"></div>
+          <div><label>Intro source</label><input id="intro"></div>
+        </div>
+        <div class="grid3">
+          <div><label>Status</label><select id="status"></select></div>
+          <div><label>Priority</label><select id="priority"></select></div>
+          <div><label>Source type</label><select id="sourceType"></select></div>
+          <div><label>Last chat</label><input id="lastChat" type="date"></div>
+          <div><label>Follow-up date</label><input id="followUp" type="date"></div>
+          <div><label>Tags</label><input id="tags" placeholder="PE, Darden, NYC"></div>
+        </div>
+        <div class="full"><label>Conversation notes</label><textarea id="notes" placeholder="What you discussed, advice, action items, warm intro details"></textarea></div>
+        <div class="full"><label>Public info summary</label><textarea id="publicSummary" placeholder="Current role, board seats, investments, recent press, education, shared context"></textarea></div>
+        <div class="full"><label>Source URLs</label><textarea id="sources" placeholder="One URL per line. Add LinkedIn, company bio, press, podcast, SEC page, etc."></textarea></div>
+        <div class="full intel" id="intelPanel"></div>
+        <div class="full">
+          <label>Public research links</label>
+          <div class="research" id="researchLinks"></div>
+          <p class="note">These open public web searches. Because most sites block browser scraping, save only information you verify from public pages.</p>
+        </div>
+        <div class="actions">
+          <button class="primary" id="saveContact">Save contact</button>
+          <button class="ghost" id="duplicateContact">Duplicate</button>
+          <button class="ghost" id="deleteContact">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="alumni_contacts_data.js"></script>
+  <script type="module">
+    const STORAGE_KEY = "network_tracker_v2";
+    const CLOUD_KEY = "network_tracker_cloud";
+    const statuses = ["Not contacted", "Reached out", "Responded", "Chat scheduled", "Chatted", "Follow-up sent", "Dormant"];
+    const priorities = ["Normal", "High", "Medium", "Low"];
+    const sourceTypes = ["Personal intro", "Alumni", "Recruiter", "Event", "Public search", "Friend", "Other"];
+    const fallbackSeed = [
+      { name: "Amanda Golden", company: "Sands Capital", role: "Senior Associate", location: "Washington, DC", status: "Reached out", priority: "High", sourceType: "Alumni", tags: "Darden, investing, asset management", publicSummary: "Darden alum in growth investing. Verify current role before outreach.", sources: "https://www.linkedin.com/in/a-golden" },
+      { name: "Abdulai Sei", company: "The Carlyle Group", role: "Senior Analyst", location: "Washington, DC", status: "Not contacted", priority: "High", sourceType: "Alumni", tags: "Darden, private equity", publicSummary: "Potential investing contact. Add notes after public profile review.", sources: "https://www.linkedin.com/in/ajsei" },
+      { name: "Akshat Devang Shah", company: "Evercore", role: "Investment Banking Associate", location: "Charlottesville, VA", status: "Not contacted", priority: "Medium", sourceType: "Alumni", tags: "Darden, banking", sources: "https://www.linkedin.com/in/akshatshahcfa" }
+    ].map(withId);
+    const seed = (window.ALUMNI_CONTACTS?.length ? window.ALUMNI_CONTACTS : fallbackSeed).map(withId);
+    let contacts = mergeContacts(seed, load(STORAGE_KEY) || []);
+    let editingId = null;
+    let view = "all";
+
+    const $ = id => document.getElementById(id);
+    const fields = ["name","url","company","role","email","phone","location","intro","status","priority","sourceType","lastChat","followUp","tags","notes","publicSummary","sources"];
+
+    function withId(contact) {
+      return { id: contact.id || crypto.randomUUID(), createdAt: contact.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), ...contact };
+    }
+    function contactKey(c) {
+      return [c.url, c.name, c.company, c.role].map(v => String(v || "").trim().toLowerCase()).join("|");
+    }
+    function mergeContacts(base, saved) {
+      const merged = base.map(withId);
+      const byId = new Map(merged.map((c, i) => [c.id, i]));
+      const byKey = new Map();
+      merged.forEach((c, i) => { if (!byKey.has(contactKey(c))) byKey.set(contactKey(c), i); });
+      saved.forEach(c => {
+        const idIndex = byId.get(c.id);
+        const keyIndex = byKey.get(contactKey(c));
+        const index = idIndex ?? keyIndex;
+        if (index !== undefined) merged[index] = withId({ ...merged[index], ...c });
+        else merged.push(withId(c));
+      });
+      return merged;
+    }
+    function load(key) {
+      try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+    }
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+      render();
+    }
+    function esc(value = "") {
+      return String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+    }
+    function optionize(select, values) {
+      select.innerHTML += values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    }
+    optionize($("status"), statuses); optionize($("statusFilter"), statuses);
+    optionize($("priority"), priorities); optionize($("priorityFilter"), priorities);
+    optionize($("sourceType"), sourceTypes); optionize($("sourceFilter"), sourceTypes);
+
+    function matchesFilters(c) {
+      const q = $("search").value.trim().toLowerCase();
+      const hay = [c.name,c.company,c.role,c.location,c.tags,c.notes,c.publicSummary,c.intro].join(" ").toLowerCase();
+      const due = c.followUp && new Date(c.followUp + "T23:59:59") <= new Date();
+      if (view === "active" && !["Reached out","Responded","Chat scheduled"].includes(c.status)) return false;
+      if (view === "followups" && !due) return false;
+      if (view === "favorites" && c.priority !== "High") return false;
+      if (q && !hay.includes(q)) return false;
+      if ($("statusFilter").value && c.status !== $("statusFilter").value) return false;
+      if ($("priorityFilter").value && c.priority !== $("priorityFilter").value) return false;
+      if ($("sourceFilter").value && c.sourceType !== $("sourceFilter").value) return false;
+      if ($("tagFilter").value && !(c.tags || "").toLowerCase().includes($("tagFilter").value.toLowerCase())) return false;
+      if ($("companyFilter").value && !(c.company || "").toLowerCase().includes($("companyFilter").value.toLowerCase())) return false;
+      return true;
+    }
+    function pill(status, followUp) {
+      const due = followUp && new Date(followUp + "T23:59:59") <= new Date();
+      if (due) return `<span class="pill red">Due</span>`;
+      if (["Chatted","Responded","Chat scheduled"].includes(status)) return `<span class="pill">${esc(status)}</span>`;
+      if (status === "Reached out") return `<span class="pill orange">${esc(status)}</span>`;
+      return `<span class="pill gray">${esc(status || "Not contacted")}</span>`;
+    }
+    function contactScore(c) {
+      let score = 12;
+      if (c.priority === "High") score += 18;
+      if (c.status === "Reached out") score += 12;
+      if (c.status === "Responded") score += 22;
+      if (c.status === "Chat scheduled") score += 28;
+      if (c.status === "Chatted") score += 35;
+      if (c.lastChat) score += 10;
+      if (c.followUp) score += 8;
+      if ((c.sources || "").trim()) score += 10;
+      if ((c.notes || "").trim()) score += 8;
+      return Math.min(score, 100);
+    }
+    function suggestedMove(c) {
+      if (!c) return ["Build momentum", "Add a priority contact and one next action."];
+      const due = c.followUp && new Date(c.followUp + "T23:59:59") <= new Date();
+      if (due) return [`Follow up with ${c.name}`, `${c.company || "Their team"} is already due. Open the card and send the next note.`];
+      if (c.status === "Not contacted") return [`Reach out to ${c.name}`, "You have a high-priority contact ready for first outreach."];
+      if (!c.sources) return [`Research ${c.name}`, "Add at least two public sources before the chat."];
+      if (!c.followUp) return [`Set next step for ${c.name}`, "This contact has momentum but no follow-up date."];
+      return [`Prepare for ${c.name}`, "Review notes and public sources before the next touchpoint."];
+    }
+    function renderMission() {
+      const due = contacts.filter(c => c.followUp && new Date(c.followUp + "T23:59:59") <= new Date());
+      const candidate = due[0] || contacts.filter(c => c.priority === "High").sort((a,b) => contactScore(b) - contactScore(a))[0] || contacts[0];
+      const [move, detail] = suggestedMove(candidate);
+      const sourceCount = contacts.reduce((sum,c) => sum + (c.sources || "").split(/\n+/).filter(Boolean).length, 0);
+      const active = contacts.filter(c => c.lastChat || c.followUp || c.notes || c.sources).length;
+      $("nextMove").textContent = move;
+      $("nextMoveDetail").textContent = detail;
+      $("heatScore").textContent = contacts.length ? Math.round(active / contacts.length * 100) + "%" : "0%";
+      $("researchDepth").textContent = sourceCount;
+      const cfg = load(CLOUD_KEY);
+      $("systemMode").textContent = cfg?.url && cfg?.key ? "Cloud ready" : "Local mode";
+      $("systemHint").textContent = cfg?.url && cfg?.key ? "Use Sync now to push and pull contacts." : "Connect Supabase when you want cross-device access.";
+    }
+    function renderPipeline() {
+      const stages = ["Not contacted", "Reached out", "Responded", "Chat scheduled", "Chatted"];
+      $("pipeline").innerHTML = stages.map(stage => {
+        const items = contacts.filter(c => c.status === stage).sort((a,b) => contactScore(b) - contactScore(a));
+        return `<div class="stage">
+          <b>${esc(stage)} <span>${items.length}</span></b>
+          <div class="mini">${items.slice(0, 3).map(c => `<button data-edit="${c.id}">${esc(c.name)}<br><span class="tiny">${esc(c.company || "")}</span></button>`).join("") || `<span class="tiny">No contacts here yet</span>`}</div>
+        </div>`;
+      }).join("");
+    }
+    function render() {
+      const filtered = contacts.filter(matchesFilters).sort((a,b) => (a.followUp || "9999").localeCompare(b.followUp || "9999"));
+      $("rows").innerHTML = filtered.map(c => `
+        <tr>
+          <td><div class="name">${esc(c.name)}</div><div class="tiny">${esc(c.location || "")}</div></td>
+          <td>${esc(c.role || "")}<div class="tiny">${esc(c.company || "")}</div></td>
+          <td>${pill(c.status, c.followUp)}<div class="tiny"><span class="score">${contactScore(c)}</span> relationship score · ${esc(c.priority || "Normal")} priority</div></td>
+          <td>${esc(c.lastChat || "")}</td>
+          <td>${esc(c.followUp || "")}</td>
+          <td>${esc(c.tags || "")}</td>
+          <td><div class="actions"><button class="iconbtn" data-edit="${c.id}">Open</button>${c.url ? `<a class="iconbtn" href="${esc(c.url)}" target="_blank" rel="noreferrer">Profile</a>` : ""}</div></td>
+        </tr>
+      `).join("");
+      $("empty").hidden = filtered.length > 0;
+      $("totalCount").textContent = contacts.length;
+      $("chatCount").textContent = contacts.filter(c => ["Chatted","Follow-up sent"].includes(c.status)).length;
+      $("dueCount").textContent = contacts.filter(c => c.followUp && new Date(c.followUp + "T23:59:59") <= new Date()).length;
+      $("sourceCount").textContent = contacts.reduce((sum,c) => sum + (c.sources || "").split(/\n+/).filter(Boolean).length, 0);
+      renderMission();
+      renderPipeline();
+    }
+    function openModal(id) {
+      editingId = id || null;
+      const contact = contacts.find(c => c.id === id) || withId({ status: "Not contacted", priority: "Normal", sourceType: "Personal intro" });
+      $("modalTitle").textContent = id ? contact.name || "Contact" : "Add contact";
+      fields.forEach(f => $(f).value = contact[f] || "");
+      buildResearch(contact);
+      $("deleteContact").style.display = id ? "" : "none";
+      $("modal").classList.add("open");
+    }
+    function collect() {
+      const data = {};
+      fields.forEach(f => data[f] = $(f).value.trim());
+      return withId({ ...contacts.find(c => c.id === editingId), ...data, id: editingId || crypto.randomUUID() });
+    }
+    function buildResearch(c) {
+      const name = encodeURIComponent(c.name || $("name").value || "");
+      const company = encodeURIComponent(c.company || $("company").value || "");
+      const role = encodeURIComponent(c.role || $("role").value || "");
+      const queries = [
+        ["LinkedIn", `${c.url || `https://www.google.com/search?q=${name}+${company}+LinkedIn`}`],
+        ["Google", `https://www.google.com/search?q=${name}+${company}+${role}`],
+        ["News", `https://news.google.com/search?q=${name}+${company}`],
+        ["Company bio", `https://www.google.com/search?q=${name}+${company}+bio`],
+        ["Podcasts", `https://www.google.com/search?q=${name}+${company}+podcast+interview`],
+        ["SEC / filings", `https://www.google.com/search?q=${name}+${company}+SEC+filing`]
+      ];
+      $("researchLinks").innerHTML = queries.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noreferrer">${label}</a>`).join("");
+      const score = contactScore(c);
+      const sourceTotal = (c.sources || "").split(/\n+/).filter(Boolean).length;
+      $("intelPanel").innerHTML = `
+        <strong>Relationship intelligence</strong>
+        <div class="intel-grid">
+          <div class="intel-k"><b>${score}</b><span>Relationship score</span></div>
+          <div class="intel-k"><b>${sourceTotal}</b><span>Verified sources</span></div>
+          <div class="intel-k"><b>${esc(c.priority || "Normal")}</b><span>Priority lane</span></div>
+        </div>
+        <span class="note">${esc(suggestedMove(c)[1])}</span>
+      `;
+    }
+    function toCsv(rows) {
+      const headers = fields;
+      const quote = v => `"${String(v || "").replaceAll('"','""')}"`;
+      return [headers.join(","), ...rows.map(r => headers.map(h => quote(r[h])).join(","))].join("\n");
+    }
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], cell = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i], next = text[i + 1];
+        if (ch === '"' && quoted && next === '"') { cell += '"'; i++; }
+        else if (ch === '"') quoted = !quoted;
+        else if (ch === "," && !quoted) { row.push(cell); cell = ""; }
+        else if ((ch === "\n" || ch === "\r") && !quoted) {
+          if (cell || row.length) { row.push(cell); rows.push(row); row = []; cell = ""; }
+          if (ch === "\r" && next === "\n") i++;
+        } else cell += ch;
+      }
+      if (cell || row.length) { row.push(cell); rows.push(row); }
+      const headers = rows.shift() || [];
+      return rows.map(r => withId(Object.fromEntries(headers.map((h,i) => [h, r[i] || ""]))));
+    }
+    async function syncCloud() {
+      const cfg = load(CLOUD_KEY);
+      if (!cfg?.url || !cfg?.key) { $("syncStatus").textContent = "Add Supabase settings to sync."; return; }
+      $("syncStatus").textContent = "Syncing...";
+      const endpoint = `${cfg.url.replace(/\/$/, "")}/rest/v1/network_contacts`;
+      const headers = { apikey: cfg.key, Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" };
+      const remote = await fetch(`${endpoint}?select=*`, { headers }).then(r => r.ok ? r.json() : Promise.reject(r));
+      const byId = new Map([...remote, ...contacts].map(c => [c.id, c]));
+      contacts = [...byId.values()].map(withId);
+      await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(contacts) });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+      $("syncStatus").textContent = `Synced ${contacts.length} contacts.`;
+      render();
+    }
+
+    document.addEventListener("input", e => { if (["search","statusFilter","priorityFilter","sourceFilter","tagFilter","companyFilter"].includes(e.target.id)) render(); if (["name","company","role"].includes(e.target.id)) buildResearch(collect()); });
+    $("views").addEventListener("click", e => { if (!e.target.dataset.view) return; view = e.target.dataset.view; document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b === e.target)); render(); });
+    $("rows").addEventListener("click", e => { if (e.target.dataset.edit) openModal(e.target.dataset.edit); });
+    $("pipeline").addEventListener("click", e => { const button = e.target.closest("[data-edit]"); if (button) openModal(button.dataset.edit); });
+    $("addContact").addEventListener("click", () => openModal());
+    $("closeModal").addEventListener("click", () => $("modal").classList.remove("open"));
+    $("modal").addEventListener("click", e => { if (e.target === $("modal")) $("modal").classList.remove("open"); });
+    $("saveContact").addEventListener("click", () => {
+      const contact = collect();
+      contacts = editingId ? contacts.map(c => c.id === editingId ? contact : c) : [contact, ...contacts];
+      save(); $("modal").classList.remove("open");
+    });
+    $("duplicateContact").addEventListener("click", () => { const copy = withId({ ...collect(), id: crypto.randomUUID(), name: collect().name + " copy" }); contacts = [copy, ...contacts]; save(); openModal(copy.id); });
+    $("deleteContact").addEventListener("click", () => { if (!editingId || !confirm("Delete this contact?")) return; contacts = contacts.filter(c => c.id !== editingId); save(); $("modal").classList.remove("open"); });
+    $("exportCsv").addEventListener("click", () => {
+      const blob = new Blob([toCsv(contacts)], { type: "text/csv" });
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "networking-contacts.csv" });
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+    $("importCsv").addEventListener("change", async e => {
+      const file = e.target.files[0]; if (!file) return;
+      contacts = [...parseCsv(await file.text()), ...contacts]; save(); e.target.value = "";
+    });
+    $("saveCloud").addEventListener("click", () => {
+      localStorage.setItem(CLOUD_KEY, JSON.stringify({ url: $("supabaseUrl").value.trim(), key: $("supabaseKey").value.trim() }));
+      $("syncStatus").textContent = "Sync settings saved.";
+    });
+    $("syncNow").addEventListener("click", () => syncCloud().catch(() => $("syncStatus").textContent = "Sync failed. Check the table name, URL, key, and Row Level Security policy."));
+    const cfg = load(CLOUD_KEY) || {};
+    $("supabaseUrl").value = cfg.url || ""; $("supabaseKey").value = cfg.key || "";
+    render();
+  </script>
+</body>
+</html>
