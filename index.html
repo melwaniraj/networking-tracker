@@ -610,7 +610,10 @@
       const endpoint = `${cfg.url.replace(/\/$/, "")}/rest/v1/network_contacts`;
       const headers = { apikey: cfg.key, Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" };
       async function supabaseJson(response) {
-        if (response.ok) return response.status === 204 ? [] : response.json();
+        if (response.ok) {
+          const text = await response.text();
+          return text ? JSON.parse(text) : [];
+        }
         let details = `${response.status} ${response.statusText}`;
         try {
           const body = await response.json();
