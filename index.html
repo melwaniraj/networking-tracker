@@ -164,6 +164,19 @@
       line-height: 1.35;
     }
     .note-summary.empty { color: var(--quiet); font-style: italic; }
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: rgba(13,16,26,.72);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .pager-actions { display: flex; gap: 8px; align-items: center; }
+    .pager button:disabled { opacity: .35; cursor: default; }
     .actions { display: flex; gap: 7px; flex-wrap: wrap; }
     .iconbtn { padding: 7px 9px; text-align: center; }
     .modal {
@@ -311,6 +324,13 @@
           </table>
           <div class="empty" id="empty" hidden>No contacts match this view.</div>
         </div>
+        <div class="pager">
+          <span id="pageInfo">Showing 0 contacts</span>
+          <div class="pager-actions">
+            <button class="ghost" id="prevPage">Previous</button>
+            <button class="ghost" id="nextPage">Next</button>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -374,6 +394,8 @@
     let contacts = mergeContacts(seed, load(STORAGE_KEY) || []);
     let editingId = null;
     let view = "all";
+    let currentPage = 1;
+    const PAGE_SIZE = 75;
 
     const $ = id => document.getElementById(id);
     const fields = ["name","url","company","role","email","phone","location","intro","status","priority","sourceType","lastChat","followUp","tags","notes","publicSummary","sources"];
@@ -491,7 +513,11 @@
     }
     function render() {
       const filtered = contacts.filter(matchesFilters).sort((a,b) => (a.followUp || "9999").localeCompare(b.followUp || "9999"));
-      $("rows").innerHTML = filtered.map(c => `
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filtered.slice(start, start + PAGE_SIZE);
+      $("rows").innerHTML = pageItems.map(c => `
         <tr class="row-click" data-edit="${c.id}">
           <td><div class="name">${esc(c.name)}</div><div class="tiny">${esc(c.location || "")}</div></td>
           <td>${esc(c.role || "")}<div class="tiny">${esc(c.company || "")}</div></td>
@@ -504,6 +530,11 @@
         </tr>
       `).join("");
       $("empty").hidden = filtered.length > 0;
+      $("pageInfo").textContent = filtered.length
+        ? `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length.toLocaleString()} contacts`
+        : "Showing 0 contacts";
+      $("prevPage").disabled = currentPage <= 1;
+      $("nextPage").disabled = currentPage >= totalPages;
       $("totalCount").textContent = contacts.length;
       $("chatCount").textContent = contacts.filter(c => ["Chatted","Follow-up sent"].includes(c.status)).length;
       $("dueCount").textContent = contacts.filter(c => c.followUp && new Date(c.followUp + "T23:59:59") <= new Date()).length;
@@ -578,17 +609,28 @@
       $("syncStatus").textContent = "Syncing...";
       const endpoint = `${cfg.url.replace(/\/$/, "")}/rest/v1/network_contacts`;
       const headers = { apikey: cfg.key, Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" };
-      const remote = await fetch(`${endpoint}?select=*`, { headers }).then(r => r.ok ? r.json() : Promise.reject(r));
+      async function supabaseJson(response) {
+        if (response.ok) return response.status === 204 ? [] : response.json();
+        let details = `${response.status} ${response.statusText}`;
+        try {
+          const body = await response.json();
+          details = body.message || body.error_description || body.error || details;
+        } catch {}
+        throw new Error(details);
+      }
+      const remote = await fetch(`${endpoint}?select=*`, { headers }).then(supabaseJson);
       const byId = new Map([...remote, ...contacts].map(c => [c.id, c]));
       contacts = [...byId.values()].map(withId);
-      await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(contacts) });
+      await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(contacts) }).then(supabaseJson);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
       $("syncStatus").textContent = `Synced ${contacts.length} contacts.`;
       render();
     }
 
-    document.addEventListener("input", e => { if (["search","statusFilter","priorityFilter","sourceFilter","tagFilter","companyFilter"].includes(e.target.id)) render(); if (["name","company","role"].includes(e.target.id)) buildResearch(collect()); });
-    $("views").addEventListener("click", e => { if (!e.target.dataset.view) return; view = e.target.dataset.view; document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b === e.target)); render(); });
+    document.addEventListener("input", e => { if (["search","statusFilter","priorityFilter","sourceFilter","tagFilter","companyFilter"].includes(e.target.id)) { currentPage = 1; render(); } if (["name","company","role"].includes(e.target.id)) buildResearch(collect()); });
+    $("views").addEventListener("click", e => { if (!e.target.dataset.view) return; view = e.target.dataset.view; currentPage = 1; document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b === e.target)); render(); });
+    $("prevPage").addEventListener("click", () => { if (currentPage > 1) { currentPage--; render(); document.querySelector(".scroll").scrollTop = 0; } });
+    $("nextPage").addEventListener("click", () => { currentPage++; render(); document.querySelector(".scroll").scrollTop = 0; });
     $("rows").addEventListener("click", e => {
       const editButton = e.target.closest("button[data-edit]");
       if (editButton) { openModal(editButton.dataset.edit); return; }
@@ -626,7 +668,7 @@
       localStorage.setItem(CLOUD_KEY, JSON.stringify({ url: $("supabaseUrl").value.trim(), key: $("supabaseKey").value.trim() }));
       $("syncStatus").textContent = "Sync settings saved.";
     });
-    $("syncNow").addEventListener("click", () => syncCloud().catch(() => $("syncStatus").textContent = "Sync failed. Check the table name, URL, key, and Row Level Security policy."));
+    $("syncNow").addEventListener("click", () => syncCloud().catch(error => $("syncStatus").textContent = `Sync failed: ${error.message}`));
     const cfg = load(CLOUD_KEY) || {};
     $("supabaseUrl").value = cfg.url || ""; $("supabaseKey").value = cfg.key || "";
     render();
