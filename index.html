@@ -424,6 +424,7 @@
       try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
     }
     function save() {
+      localStorage.setItem(`${STORAGE_KEY}_backup_${new Date().toISOString().slice(0,7)}`, JSON.stringify(contacts));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
       render();
     }
@@ -603,6 +604,29 @@
       const headers = rows.shift() || [];
       return rows.map(r => withId(Object.fromEntries(headers.map((h,i) => [h, r[i] || ""]))));
     }
+    function mergeForSync(remoteRows, localRows) {
+      const editable = ["email","phone","intro","status","priority","sourceType","lastChat","followUp","tags","notes","publicSummary","sources"];
+      const byId = new Map();
+      localRows.forEach(row => byId.set(row.id, withId(row)));
+      remoteRows.forEach(remote => {
+        const local = byId.get(remote.id);
+        if (!local) {
+          byId.set(remote.id, withId(remote));
+          return;
+        }
+        const merged = { ...local, ...remote };
+        editable.forEach(field => {
+          const localValue = String(local[field] || "").trim();
+          const remoteValue = String(remote[field] || "").trim();
+          const localLooksDefault =
+            (field === "status" && localValue === "Not contacted") ||
+            (field === "priority" && localValue === "Normal");
+          merged[field] = localValue && !localLooksDefault ? local[field] : remoteValue ? remote[field] : local[field];
+        });
+        byId.set(remote.id, withId(merged));
+      });
+      return [...byId.values()];
+    }
     async function syncCloud() {
       const cfg = load(CLOUD_KEY);
       if (!cfg?.url || !cfg?.key) { $("syncStatus").textContent = "Add Supabase settings to sync."; return; }
@@ -622,8 +646,7 @@
         throw new Error(details);
       }
       const remote = await fetch(`${endpoint}?select=*`, { headers }).then(supabaseJson);
-      const byId = new Map([...remote, ...contacts].map(c => [c.id, c]));
-      contacts = [...byId.values()].map(withId);
+      contacts = mergeForSync(remote, contacts);
       await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(contacts) }).then(supabaseJson);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
       $("syncStatus").textContent = `Synced ${contacts.length} contacts.`;
